@@ -1,23 +1,45 @@
 pipeline {
     agent any
+    
     stages {
         stage('Build') {
-            agent {
-                docker {
-                     // image 'node:18-alpine'  // make sure it's the correct image namedd
-                    image 'node:18'
-                    reuseNode true
+            steps {
+                script {
+                    // This approach works better with Docker-in-Docker setups
+                    docker.image('node:18').inside('-u root:root') {
+                        sh '''
+                            echo "=== Environment Check ==="
+                            pwd
+                            ls -la
+                            
+                            echo "=== Node.js Version ==="
+                            node --version
+                            npm --version
+                            
+                            echo "=== Installing Dependencies ==="
+                            npm ci
+                            
+                            echo "=== Building Application ==="
+                            npm run build
+                            
+                            echo "=== Build Complete ==="
+                            ls -la
+                        '''
+                    }
                 }
             }
-            steps {
-                sh '''
-                    ls -la
-                    node --version
-                    npm --version
-                    npm ci
-                    npm run build
-                '''
-            }
+        }
+    }
+    
+    post {
+        always {
+            echo 'Build completed'
+        }
+        success {
+            echo 'Build successful!'
+        }
+        failure {
+            echo 'Build failed!'
         }
     }
 }
