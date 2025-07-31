@@ -5,7 +5,8 @@ pipeline {
         stage('Build') {
             agent {
                 docker {
-                    image 'node:18-alpine'  // make sure it's the correct image name
+                    // image 'node:18-alpine'  // make sure it's the correct image name
+                    image 'node:18'
                     reuseNode true
                 }
             }
