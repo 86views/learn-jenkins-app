@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'node:18-alpine'
+            image 'node:20-alpine'
             args '-u 1000:1000 -v ${WORKSPACE}/.npm:/home/node/.npm'
             reuseNode true
         }
