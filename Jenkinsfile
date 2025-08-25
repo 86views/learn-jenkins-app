@@ -15,7 +15,12 @@ pipeline {
     stages {
         stage('Clean Workspace') {
             steps {
-                sh 'rm -rf node_modules package-lock.json'
+                sh '''
+                    rm -rf node_modules package-lock.json
+                    # Clean npm cache to avoid permission issues
+                    rm -rf "${WORKSPACE}/.npm" || true
+                    mkdir -p "${WORKSPACE}/.npm"
+                '''
             }
         }
 
