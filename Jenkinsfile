@@ -27,8 +27,8 @@ pipeline {
         stage('Install') {
             steps {
                 sh '''
-                    echo "Updating npm"
-                    npm install -g npm@latest
+                    echo "Node version: $(node --version)"
+                    echo "npm version: $(npm --version)"
                     echo "Installing dependencies"
                     npm ci --loglevel=verbose || { echo "npm ci failed"; exit 1; }
                 '''
@@ -74,7 +74,7 @@ pipeline {
             echo 'Pipeline failed. Check logs for details.'
         }
         success {
-            echo 'Pipeline completed successful.'
+            echo 'Pipeline completed successfully.'
         }
     }
 }
