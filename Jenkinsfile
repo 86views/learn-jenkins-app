@@ -1,80 +1,26 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:20-alpine'
-            args '-u 1000:1000 -v ${WORKSPACE}/.npm:/home/node/.npm'
-            reuseNode true
-        }
-    }
-
-    environment {
-        npm_config_cache = "${WORKSPACE}/.npm"
-        HOME = "${WORKSPACE}"
-    }
+    agent any
 
     stages {
-        stage('Clean Workspace') {
+        stage('Build and Test') {
+              agent {
+                docker {
+                    image 'node:18-alpine' // Use Node.js 18 Alpine for lightweight container
+                    reuseNode true
+                    args '-v /home/jenkins/.npm:/home/jenkins/.npm' // Cache npm dependencies
+                }
+            }
+
             steps {
                 sh '''
-                    rm -rf node_modules package-lock.json
-                    # Clean npm cache to avoid permission issues
-                    rm -rf "${WORKSPACE}/.npm" || true
-                    mkdir -p "${WORKSPACE}/.npm"
+                  ls -la
+                  node --version
+                  npm --version
+                  npm ci
+                  npm run build
+                  ls -la
                 '''
             }
-        }
-
-        stage('Install') {
-            steps {
-                sh '''
-                    echo "Node version: $(node --version)"
-                    echo "npm version: $(npm --version)"
-                    echo "Installing dependencies"
-                    npm ci --loglevel=verbose || { echo "npm ci failed"; exit 1; }
-                '''
-            }
-        }
-
-        stage('Test') {
-            steps {
-                sh '''
-                    echo "Running tests"
-                    npm test -- --watchAll=false
-                '''
-            }
-        }
-
-        stage('Build') {
-            steps {
-                sh '''
-                    echo "Building React app"
-                    node --version
-                    npm --version
-                    npm run build
-                '''
-                sh '''
-                    [ -d build ] || { echo "Build failed: No build folder found"; exit 1; }
-                    ls -la build
-                '''
-            }
-        }
-
-        stage('Archive') {
-            steps {
-                archiveArtifacts artifacts: 'build/**', allowEmptyArchive: false
-            }
-        }
-    }
-
-    post {
-        always {
-            archiveArtifacts artifacts: 'npm-debug.log', allowEmptyArchive: true
-        }
-        failure {
-            echo 'Pipeline failed. Check logs for details.'
-        }
-        success {
-            echo 'Pipeline completed successfully.'
         }
     }
 }
