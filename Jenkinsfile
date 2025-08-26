@@ -5,9 +5,9 @@ pipeline {
         stage('Build and Test') {
               agent {
                 docker {
-                    image 'node:18-alpine' // Use Node.js 18 Alpine for lightweight container
+                    image 'node:22-alpine' 
                     reuseNode true
-                    args '-v /home/jenkins/.npm:/home/jenkins/.npm' // Cache npm dependencies
+                   
                 }
             }
 
