@@ -2,12 +2,12 @@ pipeline {
     agent any
 
     stages {
-        stage('Build and Test') {
+        stage('Build') {
               agent {
                 docker {
                     image 'node:18-alpine' 
                     reuseNode true
-                     args '-v /home/jenkins/.npm:/home/jenkins/.npm' // Cache npm dependencies
+                    args '-v /home/jenkins/.npm:/home/jenkins/.npm' // Cache npm dependencies
                 }
             }
 
