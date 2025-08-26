@@ -7,7 +7,7 @@ pipeline {
                 docker {
                     image 'node:22-alpine' 
                     reuseNode true
-                   
+                    // args '-v /home/jenkins/.npm:/home/jenkins/.npm' // Cache npm dependencies
                 }
             }
 
