@@ -23,9 +23,22 @@ pipeline {
         }
         
         stage('Test') {
+             agent {
+                docker {
+                    image 'node:18-alpine' 
+                    reuseNode true
+                    args '-v /home/jenkins/.npm:/home/jenkins/.npm'
+                }
+            }
+
             steps {
-                sh 'test -f build/index.html' 
+                sh '''
+                  test -f build/index.html
+                  npm test
+                  ''' 
             }
         }
+
+      
     }
 }
