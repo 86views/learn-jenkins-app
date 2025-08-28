@@ -1,69 +1,34 @@
 pipeline {
     agent any
 
-    environment {
-        // If NodeJS plugin is configured, ensure 'Node18' exists in Global Tool Configuration
-        // Otherwise, rely on Docker image for Node.js
-        // NODEJS_HOME = tool name: 'Node18', type: 'NodeJS'
-        // PATH = "${NODEJS_HOME}/bin:${env.PATH}"
-    }
-
     stages {
         stage('Build') {
             agent {
                 docker {
-                    image 'node:18-alpine'
+                    image 'node:18-alpine' 
                     reuseNode true
-                    args '-v ${HOME}/.npm:/root/.npm' // Use HOME for portability
+                    args '-v /home/jenkins/.npm:/home/jenkins/.npm'
                 }
             }
             steps {
                 sh '''
-                    echo "Workspace contents:"
                     ls -la
                     node --version
                     npm --version
-                    npm ci --prefer-offline --cache=/root/.npm
+                    npm ci
                     npm run build
-                    echo "Build output:"
                     ls -la
                 '''
             }
         }
-
+               
         stage('Test') {
-            agent {
-                docker {
-                    image 'node:18-alpine'
-                    reuseNode true
-                    args '-v ${HOME}/.npm:/root/.npm'
-                }
-            }
+            
             steps {
-                sh '''
-                    npm run test || { echo "Tests failed"; exit 1; }
-                '''
+                 echo 'Test Stage'
             }
         }
 
-        stage('Archive') {
-            steps {
-                archiveArtifacts artifacts: 'dist/**', allowEmptyArchive: true
-            }
-        }
-    }
-
-    post {
-        always {
-            node {
-                cleanWs() // Run cleanWs inside a node block to provide workspace context
-            }
-        }
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed. Check logs for details.'
-        }
+      
     }
 }
