@@ -2,9 +2,10 @@ pipeline {
     agent any
 
     environment {
-        // Define environment variables for consistency
-        NODEJS_HOME = tool name: 'Node18', type: 'NodeJS'
-        PATH = "${NODEJS_HOME}/bin:${env.PATH}"
+        // If NodeJS plugin is configured, ensure 'Node18' exists in Global Tool Configuration
+        // Otherwise, rely on Docker image for Node.js
+        // NODEJS_HOME = tool name: 'Node18', type: 'NodeJS'
+        // PATH = "${NODEJS_HOME}/bin:${env.PATH}"
     }
 
     stages {
@@ -13,7 +14,7 @@ pipeline {
                 docker {
                     image 'node:18-alpine'
                     reuseNode true
-                    args '-v ${HOME}/.npm:/root/.npm' // Use HOME to avoid hardcoding
+                    args '-v ${HOME}/.npm:/root/.npm' // Use HOME for portability
                 }
             }
             steps {
@@ -54,8 +55,9 @@ pipeline {
 
     post {
         always {
-            // Clean up workspace to free disk space
-            cleanWs()
+            node {
+                cleanWs() // Run cleanWs inside a node block to provide workspace context
+            }
         }
         success {
             echo 'Pipeline completed successfully!'
