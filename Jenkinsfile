@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        NETLIFY_SITE_ID = '39a1ee8a-785a-42ce-b7e7-da57840ea10d'  // Replace with your Site ID
+        NETLIFY_SITE_ID = '39a1ee8a-785a-42ce-b7e7-da57840ea10d'
         NETLIFY_AUTH_TOKEN = credentials('netlify-token')
     }
 
@@ -17,14 +17,11 @@ pipeline {
             }
             steps {
                 sh '''
-                    echo "=== Build Stage ==="
-                    echo "Node version: $(node --version)"
-                    echo "NPM version: $(npm --version)"
-                    echo "Installing dependencies..."
+                    ls -la
+                    node --version
+                    npm --version
                     npm ci
-                    echo "Building application..."
                     npm run build
-                    echo "Build completed!"
                     ls -la
                 '''
             }
@@ -42,25 +39,13 @@ pipeline {
 
                     steps {
                         sh '''
-                            echo "=== Unit Tests ==="
-                            if [ -f build/index.html ]; then
-                                echo "✅ Build output verified"
-                            else
-                                echo "❌ Warning: build/index.html not found"
-                            fi
+                            #test -f build/index.html
                             npm test
                         '''
                     }
                     post {
                         always {
-                            // Only try to publish if the file exists
-                            script {
-                                if (fileExists('jest-results/junit.xml')) {
-                                    junit 'jest-results/junit.xml'
-                                } else {
-                                    echo 'No JUnit results found'
-                                }
-                            }
+                            junit 'jest-results/junit.xml'
                         }
                     }
                 }
@@ -75,40 +60,16 @@ pipeline {
 
                     steps {
                         sh '''
-                            echo "=== E2E Tests ==="
                             npm install serve
-                            echo "Starting server..."
-                            node_modules/.bin/serve -s build -p 3000 &
-                            SERVER_PID=$!
-                            echo "Server PID: $SERVER_PID"
-                            
-                            echo "Waiting for server to start..."
-                            sleep 15
-                            
-                            echo "Running Playwright tests..."
-                            npx playwright test --reporter=html || echo "E2E tests completed"
-                            
-                            # Cleanup
-                            kill $SERVER_PID 2>/dev/null || true
+                            node_modules/.bin/serve -s build &
+                            sleep 10
+                            npx playwright test  --reporter=html
                         '''
                     }
 
                     post {
                         always {
-                            script {
-                                if (fileExists('playwright-report/index.html')) {
-                                    publishHTML([
-                                        allowMissing: false, 
-                                        alwaysLinkToLastBuild: false, 
-                                        keepAll: false, 
-                                        reportDir: 'playwright-report', 
-                                        reportFiles: 'index.html', 
-                                        reportName: 'Playwright HTML Report'
-                                    ])
-                                } else {
-                                    echo 'No Playwright report found'
-                                }
-                            }
+                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright HTML Report', reportTitles: '', useWrapperFileDirectly: true])
                         }
                     }
                 }
@@ -124,51 +85,12 @@ pipeline {
             }
             steps {
                 sh '''
-                    echo "=== Deploy Stage ==="
-                    echo "Installing Netlify CLI..."
-                    npm install netlify-cli@17.36.2
-                    
-                    echo "Netlify CLI version:"
+                    npm install netlify-cli@20.1.1
                     node_modules/.bin/netlify --version
-                    
-                    echo "Checking authentication..."
+                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
                     node_modules/.bin/netlify status
-                    
-                    echo "Site ID: $NETLIFY_SITE_ID"
-                    echo "Deploying to production..."
-                    
-                    node_modules/.bin/netlify deploy \
-                        --dir=build \
-                        --prod \
-                        --site=$NETLIFY_SITE_ID \
-                        --auth=$NETLIFY_AUTH_TOKEN
-                    
-                    echo "✅ Deployment completed!"
                 '''
             }
-            post {
-                success {
-                    echo '🚀 Deployment successful!'
-                }
-                failure {
-                    echo '❌ Deployment failed!'
-                }
-            }
-        }
-    }
-
-    post {
-        always {
-            node {
-                // Clean workspace only within node context
-                cleanWs()
-            }
-        }
-        success {
-            echo '✅ Pipeline completed successfully!'
-        }
-        failure {
-            echo '❌ Pipeline failed. Check logs above.'
         }
     }
 }
