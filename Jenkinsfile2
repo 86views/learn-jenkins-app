@@ -1,0 +1,134 @@
+pipeline {
+    agent any
+
+    environment {
+        NETLIFY_SITE_ID = '39a1ee8a-785a-42ce-b7e7-da57840ea10d'
+        NETLIFY_AUTH_TOKEN = credentials('netlify-token')
+    }
+
+    stages {
+        stage('Build') {
+            agent {
+                docker {
+                    image 'node:18-alpine'
+                    reuseNode true
+                }
+            }
+            steps {
+                sh '''
+                    ls -la
+                    node --version
+                    npm --version
+                    npm ci
+                    npm run build
+                    ls -la
+                '''
+            }
+        }
+
+        stage('Tests') {
+            parallel {
+                stage('Unit tests') {
+                    agent {
+                        docker {
+                            image 'node:18-alpine'
+                            reuseNode true
+                        }
+                    }
+
+                    environment {
+                        JEST_JUNIT_OUTPUT_DIR = "test-results/junit"
+                        JEST_JUNIT_OUTPUT_NAME = "junit.xml"
+                    }
+
+                    steps {
+                        sh '''
+                            # Install jest-junit reporter
+                            npm install --save-dev jest-junit
+                            
+                            # Run tests with junit reporter
+                            npm test -- --ci --watchAll=false --reporters=default --reporters=jest-junit
+                        '''
+                    }
+                    post {
+                        always {
+                            junit 'test-results/junit/junit.xml'
+                        }
+                    }
+                }
+
+                stage('E2E') {
+                    agent {
+                        docker {
+                            image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                            reuseNode true
+                        }
+                    }
+
+                    steps {
+                        sh '''
+                            npm install serve
+                            node_modules/.bin/serve -s build &
+                            SERVE_PID=$!
+                            sleep 10
+                            npx playwright test --reporter=html
+                            kill $SERVE_PID || true
+                        '''
+                    }
+
+                    post {
+                        always {
+                            // Alternative to publishHTML - archive the artifacts
+                            archiveArtifacts artifacts: 'playwright-report/**/*', allowEmptyArchive: true
+                            
+                            // If you want HTML reports, install the HTML Publisher plugin
+                            // publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright Report'])
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
+            agent {
+                docker {
+                    image 'node:18-alpine'
+                    reuseNode true
+                }
+            }
+            steps {
+                sh '''
+                    npm install -g netlify-cli@20.1.1
+                    netlify --version
+                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
+                    netlify status
+                    # Uncomment the actual deploy command when ready
+                    # netlify deploy --prod --dir=build
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            // Archive build artifacts
+            archiveArtifacts artifacts: 'build/**/*', allowEmptyArchive: true
+            
+            // Archive test results if they exist
+            archiveArtifacts artifacts: 'test-results/**/*,playwright-report/**/*', allowEmptyArchive: true
+            
+            // Cleanup - remove node_modules to save space
+            deleteDir()
+        }
+        failure {
+            emailext (
+                subject: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                body: "Check console output at ${env.BUILD_URL}",
+                to: "oluleyeoluseun@gmail.com"
+            )
+        }
+    }
+}
