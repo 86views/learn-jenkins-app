@@ -38,8 +38,6 @@ pipeline {
                 sh '''
                     test -f build/index.html
                     npm test
-                    # List test results to verify file exists
-                    ls -la test-results/ || echo "test-results directory not found"
                 '''
             }
         }
@@ -56,12 +54,10 @@ pipeline {
                     npm install serve
                     node_modules/.bin/serve -s build &
                     sleep 10
-                    npx playwright test --reporter=html --reporter=junit
-                    # List Playwright test results
-                    ls -la test-results/ || echo "test-results directory not found"
+                    npx playwright test --reporter=html
                 '''
             }
-        }
+        }   // ✅ properly closed the E2E stage
 
         stage('Deploy') {
             agent {
@@ -83,21 +79,8 @@ pipeline {
 
     post {   
         always {
-            // Correct path for Jest JUnit reports (based on your package.json config)
             junit 'test-results/junit.xml'
-            
-            // Also capture any other potential test result files
-            junit '**/test-results/**/*.xml'
-            
-            // Archive the Playwright HTML reports too
-            publishHTML([
-                allowMissing: false,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'playwright-report',
-                reportFiles: 'index.html',
-                reportName: 'Playwright Report'
-            ])
+             
         }
     }
 }
