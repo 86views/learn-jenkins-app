@@ -45,23 +45,24 @@ pipeline {
         }
 
         stage('E2E') {
-            agent {
-                docker {
-                    image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
-                    reuseNode true
-                }
-            }
-            steps {
-                sh '''
-                    npm install serve
-                    node_modules/.bin/serve -s build &
-                    sleep 10
-                    npx playwright test --reporter=html --reporter=junit
-                    # List Playwright test results
-                    ls -la test-results/ || echo "test-results directory not found"
-                '''
-            }
+    agent {
+        docker {
+            image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+            reuseNode true
         }
+    }
+    steps {
+        sh '''
+            npm install serve
+            node_modules/.bin/serve -s build &
+            sleep 10
+            # Run Playwright with JUnit reporter output to file
+            npx playwright test --reporter=html --reporter=junit --reporter-option output=test-results/playwright-junit.xml
+            # Verify the file was created
+            ls -la test-results/
+        '''
+    }
+}
 
         stage('Deploy') {
             agent {
@@ -85,6 +86,9 @@ pipeline {
         always {
             // Correct path for Jest JUnit reports (based on your package.json config)
             junit 'test-results/junit.xml'
+
+
+            junit 'test-results/playwright-junit.xml'
             
             // Also capture any other potential test result files
             junit '**/test-results/**/*.xml'
