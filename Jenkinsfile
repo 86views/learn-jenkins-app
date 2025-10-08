@@ -19,7 +19,22 @@ pipeline {
                     ls -la
                     node --version
                     npm --version
-                    npm ci
+                    # Retry logic for npm ci
+                    n=0
+                    max_retries=3
+                    until [ $n -ge $max_retries ]
+                    do
+                       echo "Attempt $((n+1)) of $max_retries: Running npm ci..."
+                       npm ci --prefer-offline --no-audit && break
+                       n=$((n+1))
+                       if [ $n -lt $max_retries ]; then
+                         echo "npm ci failed, retrying in 10 seconds..."
+                         sleep 10
+                       else
+                         echo "npm ci failed after $max_retries attempts"
+                         exit 1
+                       fi
+                    done
                     npm run build
                     ls -la
                 '''
