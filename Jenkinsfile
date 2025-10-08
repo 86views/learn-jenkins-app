@@ -53,13 +53,14 @@ pipeline {
     }
     steps {
         sh '''
-            npm install serve
+             npm install serve
             node_modules/.bin/serve -s build &
             sleep 10
-            # Run Playwright with JUnit reporter output to file
-            npx playwright test --reporter=html --reporter=junit --reporter-option output=test-results/playwright-junit.xml
-            # Verify the file was created
+            # Just run playwright test - the config will handle reporters
+            npx playwright test
+            # Verify files were created
             ls -la test-results/
+            ls -la playwright-report/
         '''
     }
 }
