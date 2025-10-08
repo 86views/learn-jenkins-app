@@ -38,32 +38,34 @@ pipeline {
                 sh '''
                     test -f build/index.html
                     npm test
-                    # List test results to verify file exists
-                    ls -la test-results/ || echo "test-results directory not found"
+                    ls -la test-results/
                 '''
+                // Stash the Jest test results
+                stash name: 'jest-test-results', includes: 'test-results/junit.xml'
             }
         }
 
         stage('E2E') {
-    agent {
-        docker {
-            image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
-            reuseNode true
+            agent {
+                docker {
+                    image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                    reuseNode true
+                }
+            }
+            steps {
+                sh '''
+                    npm install serve
+                    node_modules/.bin/serve -s build &
+                    sleep 10
+                    npx playwright test
+                    ls -la test-results/
+                    ls -la playwright-report/
+                '''
+                // Stash the Playwright test results
+                stash name: 'playwright-test-results', includes: 'test-results/playwright-junit.xml'
+                stash name: 'playwright-html-report', includes: 'playwright-report/**'
+            }
         }
-    }
-    steps {
-        sh '''
-             npm install serve
-            node_modules/.bin/serve -s build &
-            sleep 10
-            # Just run playwright test - the config will handle reporters
-            npx playwright test
-            # Verify files were created
-            ls -la test-results/
-            ls -la playwright-report/
-        '''
-    }
-}
 
         stage('Deploy') {
             agent {
@@ -81,22 +83,34 @@ pipeline {
                 '''
             }
         }
+        
+        stage('Collect Test Results') {
+            agent any
+            steps {
+                // Unstash all test results to the workspace
+                unstash 'jest-test-results'
+                unstash 'playwright-test-results'
+                unstash 'playwright-html-report'
+                // Verify files are available
+                sh '''
+                    echo "=== Available test result files ==="
+                    find . -name "*.xml" -type f
+                    ls -la test-results/ || echo "test-results directory not found"
+                '''
+            }
+        }
     }
 
     post {   
         always {
-            // Correct path for Jest JUnit reports (based on your package.json config)
+            // Now the test results should be available in the workspace
             junit 'test-results/junit.xml'
-
-
             junit 'test-results/playwright-junit.xml'
+            junit 'test-results/**/*.xml'
             
-            // Also capture any other potential test result files
-            junit '**/test-results/**/*.xml'
-            
-            // Archive the Playwright HTML reports too
+            // HTML report for Playwright
             publishHTML([
-                allowMissing: false,
+                allowMissing: true,
                 alwaysLinkToLastBuild: true,
                 keepAll: true,
                 reportDir: 'playwright-report',
