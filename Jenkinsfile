@@ -100,7 +100,7 @@ pipeline {
         }
         
         stage('Collect Test Results') {
-            agent any
+            // REMOVE agent any - run in main workspace
             steps {
                 // Unstash all test results to the workspace
                 unstash 'jest-test-results'
@@ -108,9 +108,12 @@ pipeline {
                 unstash 'playwright-html-report'
                 // Verify files are available
                 sh '''
+                    echo "=== Current workspace ==="
+                    pwd
                     echo "=== Available test result files ==="
                     find . -name "*.xml" -type f
                     ls -la test-results/ || echo "test-results directory not found"
+                    ls -la playwright-report/ || echo "playwright-report directory not found"
                 '''
             }
         }
